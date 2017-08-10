@@ -28,7 +28,6 @@ extern "C" {
 static const char serverIndex[] PROGMEM =
   R"(<form method='POST' action='' enctype='multipart/form-data'>
                   <input type='file' name='update'>
-                  <input type='submit' value='Update'>
                   <button>Update</button>
                </form>)";
 static const char successResponse[] PROGMEM = 
