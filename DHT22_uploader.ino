@@ -310,12 +310,19 @@ void setup() {
   
       if (SPIFFS.exists("/upload_later.txt")) {
         boolean set_clock = true;
+        // Set time from file
+        time_from_file();
+       
+        // Create the URL
+        String the_time = tid(now());
+        the_time.replace(" ", "%20");
+		
         String file_url; 
         f = SPIFFS.open("/upload_later.txt", "r");
         while (f.available()) {
           //Read line by line from the file
           file_url = f.readStringUntil('\n');
-          upload_url_to_page(client, file_url, set_clock);
+          upload_url_to_page(client, file_url + "&tidnu=" + String(the_time), set_clock);
           set_clock = false;
         }
         f.close();
