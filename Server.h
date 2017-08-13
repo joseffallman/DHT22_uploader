@@ -5,15 +5,15 @@
 */
 
 #include <string.h>
+#include "SensorData.h"
 
 public class Server
 {
     public:
-        Server(string url);
+        Server(String url);
 
-        SendReading(, int batteryPercent);
+        bool SendReading(SensorData reading);
 
     private:
-        string _url;
+        String _url;
 }
-

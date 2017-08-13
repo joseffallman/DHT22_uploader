@@ -12,7 +12,7 @@ public class Device
         // Creates a Device object.
         // id (int): The ID of the current device.
         // updateIntervalSec (int): The update interval in seconds.
-        Device(int id, int updateIntervalSec);
+        Device(int id, int updateIntervalSec, Server& server);
 
         // Frees up resources used by the Device.
         ~Device();
@@ -33,11 +33,15 @@ public class Device
         /* Methods */
 
         // Gets whether stored data exists.
-        bool HasStoredData();
+        bool HasStoredReadings();
 
-        // Sends stored data to the server.
+        // Sends stored readings to the server.
         // Returns (bool): true if there are no more stored data to send to the server. Otherwise false.
-        bool SendStoredData();
+        bool SendStoredReadings();
+
+        // Stores a reading in the filesystem.
+        // reading (SensorData): The reading to store.
+        void StoreReading(SensorData reading);
 
         // Gets the battery status in percent.
         // out volt (float): Current battery current.
@@ -47,23 +51,20 @@ public class Device
 
         // Gets the current time as presumed by the device. May differ aggressively from real time.
         String GetCurrentBoardTime();
+
+        // Sets the current time. This method should be called every time the exact time is known.
+        String Device::SetCurrentBoardTime(String currentTime)
 }
 
 /* USE LIKE THIS
 
 void setup()
 {
-    theDevice = new Device(id);
+    Server server(url);
+    Device device(id, 3600, server);
 
-    bool performMeasurement = true;
-
-    if (theDevice.HasStoredData()) {
-        performMeasurement = theDevice.SendStoredData();
-    };
-
-    if (performMeasurement) {
-        theDevice.MeasureAndSendData();
-    }
+    device.MeasureAndSendData();
+    device.Sleep();
 }
 
  */

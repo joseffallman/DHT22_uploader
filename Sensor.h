@@ -4,12 +4,13 @@
  Author:  Daniel
 */
 
+#include "SensorData.h"
+
 public class Sensor
 {
     public:
         Sensor();
 
-        float GetHumidity();
-        float GetTemperature();
+        // Gets the temperature and humidity measured by the sensor.
+        SensorData Read();
 }
-
