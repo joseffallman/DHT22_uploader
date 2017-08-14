@@ -25,13 +25,12 @@ extern "C" {
   #include "user_interface.h"
 }
 
-static const char serverIndex[] PROGMEM =
+const char serverIndex[] PROGMEM =
   R"(<form method='POST' action='' enctype='multipart/form-data'>
                   <input type='file' name='update'>
                   <button>Update</button>
                </form>)";
-static const char successResponse[] PROGMEM = 
-  "<META http-equiv=\"refresh\" content=\"15;URL=\">Update Success! Rebooting...\n";
+const char successResponse[] PROGMEM = "<META http-equiv=\"refresh\" content=\"15;URL=\">Update Success! Rebooting...\n";
 
 
 /* Josef added .info to HTTP_STYLE and a <div><span> to HTTP_FORM_PARAM */
@@ -43,7 +42,7 @@ const char HTTP_PORTAL_OPTIONS[] PROGMEM  = "<form action=\"/wifi\" method=\"get
 const char HTTP_ITEM[] PROGMEM            = "<div><a href='#p' onclick='c(this)'>{v}</a>&nbsp;<span class='q {i}'>{r}%</span></div>";
 const char HTTP_FORM_START[] PROGMEM      = "<form method='get' action='wifisave'><input id='s' name='s' length=32 placeholder='SSID'><br/><input id='p' name='p' length=64 type='password' placeholder='password'><br/>";
 //const char HTTP_FORM_PARAM[] PROGMEM      = "<br/><input id='{i}' name='{n}' length={l} placeholder='{p}' value='{v}' {c}>";
-const char HTTP_FORM_PARAM[] PROGMEM      = "<div><span class='info'>{p}</span><br/><input id='{i}' name='{n}' length={l} placeholder='{p}' value='{v}'></div>";
+const char HTTP_FORM_PARAM[] PROGMEM      = "<div style='padding: 0px;'><span class='info'>{p}</span><br/><input id='{i}' name='{n}' length={l} placeholder='{p}' value='{v}'></div>";
 const char HTTP_FORM_END[] PROGMEM        = "<br/><button type='submit'>save</button></form>";
 const char HTTP_SCAN_LINK[] PROGMEM       = "<br/><div class=\"c\"><a href=\"/wifi\">Scan</a></div>";
 const char HTTP_SAVED[] PROGMEM           = "<div>Credentials Saved<br />Trying to connect ESP to network.<br />If it fails reconnect to AP to try again</div>";
@@ -125,12 +124,14 @@ class WiFiManager
 
   private:
     void _setUpdaterError();
-    bool _serial_output;
+    bool _serial_output = true;
     char * _username;
     char * _password;
     bool _authenticated;
     String _updaterError;
-
+	void handleUpload();
+	void handleUploaded();
+	void handleUploading();
 
 
   

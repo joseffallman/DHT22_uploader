@@ -4,9 +4,9 @@
  Author:	Josef
 */
 #include <FS.h>
-#include <ESP8266WiFi.h>          //https://github.com/esp8266/Arduino
-#include <DNSServer.h>
-#include <ESP8266WebServer.h>
+//#include <ESP8266WiFi.h>          //https://github.com/esp8266/Arduino
+//#include <DNSServer.h>
+//#include <ESP8266WebServer.h>
 //#include <WiFiManager.h>          //https://github.com/tzapu/WiFiManager
 #include "WiFiManager-NEW.h"
 #include <ArduinoJson.h>          //https://github.com/bblanchon/ArduinoJson
@@ -29,6 +29,7 @@ bool success_save = false;
 bool enter_setup = false;
 bool shouldSaveConfig = false;
 int httpPort = 80; //to your server
+String the_time;
 //IPAddress timeServer(213, 21, 116, 142); // 0.se.pool.ntp.org
 //const int timeZone = 1;     // Central European Time
 //WiFiUDP Udp;
@@ -91,16 +92,16 @@ void setup() {
 	//SPIFFS.format();
 
 	//read configuration from FS json
-	Serial.println("mounting FS...");
+	Serial.println(F("mounting FS..."));
 
 	if (SPIFFS.begin()) {
-		Serial.println("mounted file system");
+		Serial.println(F("mounted file system"));
 		if (SPIFFS.exists("/config.json")) {
 			//file exists, reading and loading
-			Serial.println("reading config file");
+			Serial.println(F("reading config file"));
 			File configFile = SPIFFS.open("/config.json", "r");
 			if (configFile) {
-				Serial.println("opened config file");
+				Serial.println(F("opened config file"));
 				size_t size = configFile.size();
 				// Allocate a buffer to store contents of the file.
 				std::unique_ptr<char[]> buf(new char[size]);
@@ -110,7 +111,7 @@ void setup() {
 				JsonObject& json = jsonBuffer.parseObject(buf.get());
 				json.printTo(Serial);
 				if (json.success()) {
-					Serial.println("\nparsed json");
+					Serial.println(F("\nparsed json"));
 
 					strcpy(url_server, json["url_server"]);
 					strcpy(url_page, json["url_page"]);
@@ -122,18 +123,18 @@ void setup() {
 
 				}
 				else {
-					Serial.println("failed to load json config, will enter setup");
+					Serial.println(F("failed to load json config, will enter setup"));
 					enter_setup = true;
 				}
 			}
 		}
 		else {
-			Serial.println("No config file, will enter setup");
+			Serial.println(F("No config file, will enter setup"));
 			enter_setup = true;
 		}
 	}
 	else {
-		Serial.println("Failed to mount FS, restart");
+		Serial.println(F("Failed to mount FS, restart"));
 		ESP.reset();
 		delay(5000);
 	}
@@ -143,10 +144,13 @@ void setup() {
 
   // Get battery status and if we're low, turn off device
   battery = battery_level();
-  Serial.println("Battery is: ");
+  Serial.print(F("Battery check: "));
   if ( battery <= 0 ) {
-    Serial.println("ESP8266 shutdown");
+    Serial.println(F("ESP8266 shutdown"));
     turn_off();
+  }
+  else {
+	Serial.println(F("OK"));
   }
 
   
@@ -159,7 +163,7 @@ void setup() {
 
 	//Start blue-led to tell thats its time to trigger the setup-portal
 	if (!enter_setup) {
-		Serial.println("Would you like to enter setup-portal?");
+		Serial.println(F("Would you like to enter setup-portal?"));
 		pinMode(0, INPUT);
 		pinMode(2, OUTPUT);
 		digitalWrite(2, LOW);
@@ -171,16 +175,18 @@ void setup() {
 
 	// is configuration portal requested?
 	if (digitalRead(0) == LOW || enter_setup == true) {
-		Serial.println("Setup-portal initialize");
+		Serial.println(F("Setup-portal initialize"));
+
+
 		WiFiMangager();
 		// digitalWrite(0, HIGH);
 		// delay(1000);
-		// Serial.println("Restarts");
+		// Serial.println(F("Restarts"));
 		// ESP.reset();
 		// delay(5000);
 	}
 	else {
-		Serial.println("Setup-portal not trigged");
+		Serial.println(F("Setup-portal not trigged"));
 	}
   //--------------------------------------------------------------------------
   //                      All settings is now loaded and ready
@@ -188,11 +194,11 @@ void setup() {
 
   unsigned int sleep = atoi(sleeptime);
   if (strchr(url_server, ':') != NULL) {
-    Serial.println("Will split ip and port to different variables");
+    Serial.println(F("Will split ip and port to different variables"));
     char *splited_url = strtok(url_server, ":");
-    Serial.print("URL: ");Serial.print(splited_url);
+    Serial.print(F("URL: "));Serial.print(splited_url);
     char *splited_port = strtok(NULL, ":");
-    Serial.print(" Port: ");Serial.println(splited_port);
+    Serial.print(F(" Port: "));Serial.println(splited_port);
     
     strcpy(url_server, splited_url);
     httpPort = atoi(splited_port);
@@ -207,11 +213,11 @@ void setup() {
 	while (WiFi.status() != WL_CONNECTED && wifi_x < 10) {
 		delay(500);
 		wifi_x += 1;
-		Serial.print(".");
+		Serial.print(F("."));
 	}
 	Serial.println();
 	if (WiFi.status() != WL_CONNECTED && wifi_x == 10) {
-		Serial.println("Your not connected, restart");
+		Serial.println(F("Your not connected, restart"));
 		//Make sure that pin 0 is HIGH before restarts/sleep
 		digitalWrite(0, HIGH);
 		delay(1000);
@@ -224,7 +230,7 @@ void setup() {
       time_from_file();
      
       // Create the URL
-      String the_time = tid(now());
+      the_time = tid(now());
       the_time.replace(" ", "%20");
       String url = String(String(url_page) + "?sensor=" + URLEncode(sensor_name) + "&tid=" + String(the_time) + "&temperature=" + String(temperature) + "&humidity=" + String(humidity) + "&batt=" + String(battery) + "&batt_volt=" + String(level_voltage) /* + "&sleeptime=" + String(sleeptime) */  + "&connection_status=no_internet" );
       save_url(url);
@@ -235,16 +241,16 @@ void setup() {
 	}
 	if (WiFi.status() == WL_CONNECTED) {
 		Serial.println();
-		Serial.println("WiFi connected");
-		Serial.print("IP address: "); Serial.println(WiFi.localIP());
+		Serial.println(F("WiFi connected"));
+		Serial.print(F("IP address: ")); Serial.println(WiFi.localIP());
 	}
 	
 
-	//Serial.println("Starting UDP");
+	//Serial.println(F("Starting UDP"));
 	//Udp.begin(localPort);
 	//setSyncProvider(getNtpTime);
-	//String the_time = tid(now());
-	//Serial.print("The time is now: "); Serial.println(the_time);
+	//the_time = tid(now());
+	//Serial.print(F("The time is now: ")); Serial.println(the_time);
 	//boolean sleep_diff = check_sleep();
 
 
@@ -260,16 +266,16 @@ void setup() {
 
 
 
-		Serial.print("Connecting to: "); Serial.println(url_server); 
-		Serial.print("Port: "); Serial.println(httpPort);
+		Serial.print(F("Connecting to: ")); Serial.println(url_server); 
+		Serial.print(F("Port: ")); Serial.println(httpPort);
 
 		// Use WiFiClient class to create TCP connections
 		WiFiClient client;
 		if (!client.connect(url_server, httpPort)) {
-			Serial.print("connection to your server failed. ");
+			Serial.print(F("connection to your server failed. "));
      
       if (client.connect("www.google.com", 80)) {
-				Serial.println("connected to google");
+				Serial.println(F("connected to google"));
 				client.print(String("GET ") + "index.html HTTP/1.1\r\n" +
 					"Host: www.google.com\r\n" +
 					"Connection: close\r\n\r\n");
@@ -281,21 +287,21 @@ void setup() {
         }
         time_t header_time = FromDateHeader(client);
         setTime(header_time);
-        Serial.print("Local Time: "); Serial.println(tid(now()));
+        Serial.print(F("Local Time: ")); Serial.println(tid(now()));
 
         // Create the URL
-        String the_time = tid(now());
+        the_time = tid(now());
         the_time.replace(" ", "%20");
         String url = String(String(url_page) + "?sensor=" + URLEncode(sensor_name) + "&tid=" + String(the_time) + "&temperature=" + String(temperature) + "&humidity=" + String(humidity) + "&batt=" + String(battery) + "&batt_volt=" + String(level_voltage) /* + "&sleeptime=" + String(sleeptime) */  + "&connection_status=no_server" );
         save_url(url);
 			}
 			else {
-				Serial.println("Google failed. No internet connection!");
+				Serial.println(F("Google failed. No internet connection!"));
         // Set time from file
         time_from_file();
        
         // Create the URL
-        String the_time = tid(now());
+        the_time = tid(now());
         the_time.replace(" ", "%20");
         String url = String(String(url_page) + "?sensor=" + URLEncode(sensor_name) + "&tid=" + String(the_time) + "&temperature=" + String(temperature) + "&humidity=" + String(humidity) + "&batt=" + String(battery) + "&batt_volt=" + String(level_voltage) /* + "&sleeptime=" + String(sleeptime) */  + "&connection_status=no_internet" );
         save_url(url);
@@ -305,7 +311,7 @@ void setup() {
 			}
 		}
 		else {
-      Serial.print("successfully connected to your server.");
+      Serial.print(F("successfully connected to your server."));
       File f;
   
       if (SPIFFS.exists("/upload_later.txt")) {
@@ -314,7 +320,7 @@ void setup() {
         time_from_file();
        
         // Create the URL
-        String the_time = tid(now());
+        the_time = tid(now());
         the_time.replace(" ", "%20");
 		
         String file_url; 
@@ -329,7 +335,7 @@ void setup() {
         SPIFFS.remove("/upload_later.txt");
         
         // Create the URL
-        String the_time = tid(now());
+        the_time = tid(now());
         the_time.replace(" ", "%20");
         String url = String(String(url_page) + "?sensor=" + URLEncode(sensor_name) + "&tid=" + String(the_time) + "&temperature=" + String(temperature) + "&humidity=" + String(humidity) + "&batt=" + String(battery) + "&batt_volt=" + String(level_voltage) /* + "&sleeptime=" + String(sleeptime) */  + "&connection_status=internet" );
         upload_url_to_page(client, url);
@@ -378,16 +384,16 @@ void tick()
 }
 void trigger_pressed() {
 	enter_setup = true;
-	Serial.println("Pressed");
+	Serial.println(F("Pressed"));
 }
 void saveConfigCallback() {
-	Serial.println("Should save config");
+	Serial.println(F("Should save config"));
 	shouldSaveConfig = true;
 }
 //gets called when WiFiManager enters configuration mode
 void configModeCallback(WiFiManager *myWiFiManager) {
 
-	Serial.println("Entered config mode");
+	Serial.println(F("Entered config mode"));
 	Serial.println(WiFi.softAPIP());
 	//if you used auto generated SSID, print it
 	Serial.println(myWiFiManager->getConfigPortalSSID());
@@ -417,7 +423,7 @@ String URLEncode(const char* msg) {
 	return encodedMsg;
 }
 boolean read_dht() {
-	Serial.println("DHT22 readings!");
+	Serial.println(F("DHT22 readings!"));
 	// Initialize DHT sensor.
 	DHT dht(DHTPIN, DHTTYPE);
 
@@ -431,22 +437,22 @@ boolean read_dht() {
 
 	// Check if any reads failed and exit early (to try again).
 	if (isnan(h) || isnan(t)) {
-		Serial.println("Failed to read from DHT sensor!");
+		Serial.println(F("Failed to read from DHT sensor!"));
 		return false;
 	}
 
 	// Compute heat index in Celsius (isFahreheit = false)
 	float hic = dht.computeHeatIndex(t, h, false);
 
-	Serial.print("Humidity: ");
+	Serial.print(F("Humidity: "));
 	Serial.print(h);
-	Serial.print(" %\t");
-	Serial.print("Temperature: ");
+	Serial.print(F(" %\t"));
+	Serial.print(F("Temperature: "));
 	Serial.print(t);
-	Serial.print(" *C ");
-	Serial.print("Heat index: ");
+	Serial.print(F(" *C "));
+	Serial.print(F("Heat index: "));
 	Serial.print(hic);
-	Serial.print(" *C \n");
+	Serial.print(F(" *C \n"));
 
 	temperature = t;
 	humidity = h;
@@ -472,7 +478,7 @@ int battery_level() {
 	int Umin = ((BattMin * 100000) / (1000000 + 100000)) * 1023;
 	// convert battery level to percent
 	level = map(level, Umin, Umax, 0, 100);
-	Serial.print("Battery level: "); Serial.print(level_voltage); Serial.print("Volt. That is "); Serial.print(level); Serial.println("%");
+	Serial.print(F("Battery level: ")); Serial.print(level_voltage); Serial.print(F("Volt. That is ")); Serial.print(level); Serial.println(F("%"));
 
 	if (level < 0) {
 		level = -1;
@@ -499,22 +505,22 @@ boolean check_sleep() {
 
 		//if realsleep is less than sleeptime-1%
 		if (realsleep < atoi(sleeptime) - (atoi(sleeptime) * 0.01)) {
-			Serial.println("Did not sleep long enough");
-			//Serial.print("Slept for ");Serial.print(realsleep); Serial.println(" seconds");
-			//Serial.print("Should slept in "); Serial.print(sleeptime); Serial.println(" seconds");
+			Serial.println(F("Did not sleep long enough"));
+			//Serial.print(F("Slept for "));Serial.print(realsleep); Serial.println(F(" seconds"));
+			//Serial.print(F("Should slept in ")); Serial.print(sleeptime); Serial.println(F(" seconds"));
 
-			Serial.print("Time in file: "); Serial.println(tid(filereads.toInt()));
+			Serial.print(F("Time in file: ")); Serial.println(tid(filereads.toInt()));
 
 			//unsigned int sleep = ((atoi(sleeptime) - realsleep) * 1000000U);
 			unsigned int sleep = (filereads.toInt() + atoi(sleeptime)) - now();
-			Serial.print("This round took: "); Serial.print(millis()); Serial.println(" milliseconds.");
-			Serial.print("Going to sleep for some extra "); Serial.print(sleep); Serial.println(" seconds...ZzzZzz");
+			Serial.print(F("This round took: ")); Serial.print(millis()); Serial.println(F(" milliseconds."));
+			Serial.print(F("Going to sleep for some extra ")); Serial.print(sleep); Serial.println(F(" seconds...ZzzZzz"));
 			Serial.println();
 			ESP.deepSleep(sleep * 1000000U, WAKE_RF_DEFAULT);
 			delay(1000);
 		}
 		else {
-			Serial.print("Slept for: "); Serial.print(realsleep); Serial.println(" seconds");
+			Serial.print(F("Slept for: ")); Serial.print(realsleep); Serial.println(F(" seconds"));
 			if (realsleep < atoi(sleeptime) + (atoi(sleeptime) * 0.01)) {
 				this_wakeup_was = filereads.toInt() + atoi(sleeptime);
 			}
@@ -525,7 +531,7 @@ boolean check_sleep() {
 	// open the file in write mode
 	f = SPIFFS.open("/clock.txt", "w");
 	if (!f) {
-		Serial.println("file creation failed");
+		Serial.println(F("file creation failed"));
 	}
 	f.println(this_wakeup_was);
 	f.close();
@@ -571,13 +577,13 @@ Udp.endPacket();
 }
 time_t getNtpTime() {
 while (Udp.parsePacket() > 0) ; // discard any previously received packets
-Serial.println("Transmit NTP Request");
+Serial.println(F("Transmit NTP Request"));
 sendNTPpacket(timeServer);
 uint32_t beginWait = millis();
 while (millis() - beginWait < 1500) {
 int size = Udp.parsePacket();
 if (size >= NTP_PACKET_SIZE) {
-Serial.println("Receive NTP Response");
+Serial.println(F("Receive NTP Response"));
 Udp.read(packetBuffer, NTP_PACKET_SIZE);  // read packet into the buffer
 unsigned long secsSince1900;
 // convert four bytes starting at location 40 to a long integer
@@ -588,29 +594,29 @@ secsSince1900 |= (unsigned long)packetBuffer[43];
 return secsSince1900 - 2208988800UL + timeZone * SECS_PER_HOUR;
 }
 }
-Serial.println("No NTP Response :-(");
+Serial.println(F("No NTP Response :-("));
 return 0; // return 0 if unable to get the time
 }
 */
 int adjustDstEurope(time_t f) {
 	// last sunday of march
 	int beginDSTDate = (31 - (5 * year(f) / 4 + 4) % 7);
-	//Serial.print("Winter to summer:");Serial.print(beginDSTDate);Serial.println(" march.");
+	//Serial.print(F("Winter to summer:"));Serial.print(beginDSTDate);Serial.println(F(" march."));
 	int beginDSTMonth = 3;
 	//last sunday of october
 	int endDSTDate = (31 - (5 * year(f) / 4 + 1) % 7);
-	//Serial.print("Summer to winter:");Serial.print(endDSTDate);Serial.println(" october.");
+	//Serial.print(F("Summer to winter:"));Serial.print(endDSTDate);Serial.println(F(" october."));
 	int endDSTMonth = 10;
 	// DST is valid as:
-	Serial.print("Now its ");
+	Serial.print(F("Now its "));
 	if (((month(f) > beginDSTMonth) && (month(f) < endDSTMonth))
 		|| ((month(f) == beginDSTMonth) && (day(f) >= beginDSTDate))
 		|| ((month(f) == endDSTMonth) && (day(f) <= endDSTDate))) {
-		Serial.println("summertime.");
+		Serial.println(F("summertime."));
 		return 7200;  // DST europe = utc +2 hour
 	}
 	else {
-		Serial.println("wintertime.");
+		Serial.println(F("wintertime."));
 		return 3600; // nonDST europe = utc +1 hour
 	}
 }
@@ -638,8 +644,8 @@ time_t FromDateHeader(WiFiClient client) {
       
       static const char month_names[] = "JanFebMarAprMayJunJulAugSepOctNovDec";
       int months = (strstr(month_names, s_month) - month_names) / 3 + 1;
-      Serial.print("Current UTC-Date "); Serial.print(years); Serial.print("-"); Serial.print(printDigits(months)); Serial.print("-"); Serial.print(printDigits(days));
-      Serial.print(" "); Serial.print(printDigits(hours)); Serial.print(":"); Serial.print(printDigits(minutes)); Serial.print(":"); Serial.println(printDigits(seconds));
+      Serial.print(F("Current UTC-Date ")); Serial.print(years); Serial.print(F("-")); Serial.print(printDigits(months)); Serial.print(F("-")); Serial.print(printDigits(days));
+      Serial.print(F(" ")); Serial.print(printDigits(hours)); Serial.print(F(":")); Serial.print(printDigits(minutes)); Serial.print(F(":")); Serial.println(printDigits(seconds));
       if (days == 0 || months == 0 || years == 0) return 0; // likely something went wrong
       
       TimeElements tm;
@@ -673,7 +679,7 @@ boolean time_from_file() {
     f.close();
     file_time = filereads.toInt();
     setTime(file_time);
-    Serial.print("Estimated Local Time: "); Serial.println(tid(now()));
+    Serial.print(F("Estimated Local Time: ")); Serial.println(tid(now()));
     return true;
   }
   return false;
@@ -724,7 +730,7 @@ void WiFiMangager() {
 	wifiManager.setDebugOutput(false);
 
 	if (!wifiManager.startConfigPortal("SetupGadget")) {
-		Serial.println("failed to connect and hit timeout");
+		Serial.println(F("failed to connect and hit timeout"));
 		ticker.detach();
 		digitalWrite(0, HIGH);
 		delay(3000);
@@ -732,7 +738,7 @@ void WiFiMangager() {
 		delay(5000);
 	}
 	//if you get here you have connected to the WiFi
-	Serial.println("connected...");
+	Serial.println(F("connected..."));
 	ticker.detach();
 	digitalWrite(0, HIGH);
 
@@ -746,7 +752,7 @@ void WiFiMangager() {
 
 	//save the custom parameters to FS
 	if (shouldSaveConfig) {
-		Serial.println("saving config");
+		Serial.println(F("saving config"));
 		DynamicJsonBuffer jsonBuffer;
 		JsonObject& json = jsonBuffer.createObject();
 		json["url_server"] = url_server;
@@ -759,7 +765,7 @@ void WiFiMangager() {
 
 		File configFile = SPIFFS.open("/config.json", "w");
 		if (!configFile) {
-			Serial.println("Failed to open config file for writing");
+			Serial.println(F("Failed to open config file for writing"));
 		}
 
 		json.printTo(Serial);
@@ -769,7 +775,7 @@ void WiFiMangager() {
 
 		//Remove old clock-file
 		if (SPIFFS.exists("/clock.txt")) {
-			Serial.println("Remove old clockfile");
+			Serial.println(F("Remove old clockfile"));
 			SPIFFS.remove("/clock.txt");
 		}
 	}
@@ -779,8 +785,8 @@ void WiFiMangager() {
 	WiFiClient client;
 	const int httpPort = 80;
 	if (!client.connect(url_server, httpPort)) {
-	Serial.println("connection failed");
-	Serial.println("Restart");
+	Serial.println(F("connection failed"));
+	Serial.println(F("Restart"));
 	ESP.reset();
 	delay(5000);
 	}
@@ -816,7 +822,7 @@ unsigned int calc_wakeup() {
 		}
 		f.close();
 		next_wakeup = filereads.toInt();
-		Serial.print("This time: "); Serial.print(this_time); Serial.print(" and time in file: "); Serial.print(next_wakeup); Serial.print(" = "); Serial.println(tid(next_wakeup));
+		Serial.print(F("This time: ")); Serial.print(this_time); Serial.print(F(" and time in file: ")); Serial.print(next_wakeup); Serial.print(F(" = ")); Serial.println(tid(next_wakeup));
     
 		if ((this_time + (this_sleeptime * 24)) > next_wakeup) {
 			while ((this_time + this_sleeptime / 2) > next_wakeup) {
@@ -835,7 +841,7 @@ unsigned int calc_wakeup() {
 	// open the file in write mode
 	f = SPIFFS.open("/clock.txt", "w");
 	if (!f) {
-		Serial.println("file creation failed");
+		Serial.println(F("file creation failed"));
 		return 0;
 	}
 	f.println(next_wakeup);
@@ -846,9 +852,9 @@ unsigned int calc_wakeup() {
 
 void deep_sleep(unsigned int sleep) {
   //sleeps in sec, max = 4294
-  Serial.print("This round took: "); Serial.print(millis()); Serial.println(" milliseconds.");
+  Serial.print(F("This round took: ")); Serial.print(millis()); Serial.println(F(" milliseconds."));
 
-  Serial.print("Going to long deep sleep for "); Serial.print(sleep); Serial.println(" seconds...ZzzZzz");
+  Serial.print(F("Going to long deep sleep for ")); Serial.print(sleep); Serial.println(F(" seconds...ZzzZzz"));
   Serial.println();
   ESP.deepSleep(sleep * 1000000U, WAKE_RF_DEFAULT);
   delay(1000);
@@ -869,7 +875,7 @@ void save_url(String url) {
     f = SPIFFS.open("/upload_later.txt", "w+");
   }
   if (!f) {
-    Serial.println("file creation failed");
+    Serial.println(F("file creation failed"));
     return;
   }
 
@@ -880,7 +886,7 @@ void save_url(String url) {
 
 void upload_url_to_page(WiFiClient client, String url, boolean set_clock) {
 
-  Serial.print("Requesting URL: ");
+  Serial.print(F("Requesting URL: "));
   Serial.println(url);
 
   // This will send the request to the server
@@ -898,7 +904,7 @@ void upload_url_to_page(WiFiClient client, String url, boolean set_clock) {
   if (set_clock) {
     time_t header_time = FromDateHeader(client);
     setTime(header_time);
-    Serial.print("Local Time: "); Serial.println(tid(now()));
+    Serial.print(F("Local Time: ")); Serial.println(tid(now()));
   }
 
   // Read all the lines of the reply from server
@@ -908,7 +914,7 @@ void upload_url_to_page(WiFiClient client, String url, boolean set_clock) {
     if (line.length() > 5) {
       int klar = line.indexOf("<b>Klar</b>");
       if (klar != -1) {
-        Serial.println("Successful to upload data ");
+        Serial.println(F("Successful to upload data "));
       }
     }
   }

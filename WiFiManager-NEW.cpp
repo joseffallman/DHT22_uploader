@@ -108,99 +108,6 @@ void WiFiManager::setupConfigPortal() {
   dnsServer->setErrorReplyCode(DNSReplyCode::NoError);
   dnsServer->start(DNS_PORT, "*", WiFi.softAPIP());
 
-/* =================================================== added by Josef ====================================================================================== */
-
-
-   // _server = server;
-    _username = NULL; //(char *)username;
-    _password = NULL; //(char *)password;
-    const char * path = "/update";
-    _authenticated = false;
-
-    // handler for the /update form page
-    server->on(path, HTTP_GET, [&](){
-      if(_username != NULL && _password != NULL && !server->authenticate(_username, _password)) {
-        server->requestAuthentication();
-      }
-
-      String page = FPSTR(HTTP_HEAD);
-      page.replace("{v}", "Update Firmware");
-      page += FPSTR(HTTP_SCRIPT);
-      page += FPSTR(HTTP_STYLE);
-      page += _customHeadElement;
-      page += FPSTR(HTTP_HEAD_END);
-      page += "<h1>";
-      page += _apName;
-      page += "</h1>";
-      page += F("<h3>WiFiManager upload firmware</h3>");
-      page += FPSTR(serverIndex);
-      page += FPSTR(HTTP_END);
-
-      
-      server->send(200, PSTR("text/html"), page);
-      //server->send_P(200, PSTR("text/html"), serverIndex);
-    });
-
-    // handler for the /update form POST (once file upload finishes)
-    server->on(path, HTTP_POST, [&](){
-      if(!_authenticated) {
-        server->requestAuthentication();
-      }
-      if (Update.hasError()) {
-        server->send(200, F("text/html"), String(F("Update error: ")) + _updaterError);
-      } else {
-        server->client().setNoDelay(true);
-        server->send_P(200, PSTR("text/html"), successResponse);
-        delay(100);
-        server->client().stop();
-        ESP.restart();
-      }
-    },[&](){
-      // handler for the file upload, get's the sketch bytes, and writes
-      // them through the Update object
-      HTTPUpload& upload = server->upload();
-
-      if(upload.status == UPLOAD_FILE_START){
-        _updaterError = String();
-        if (_serial_output)
-          Serial.setDebugOutput(true);
-
-        _authenticated = (_username == NULL || _password == NULL || server->authenticate(_username, _password));
-        if(!_authenticated){
-          if (_serial_output)
-            Serial.printf("Unauthenticated Update\n");
-          return;
-        }
-
-        WiFiUDP::stopAll();
-        if (_serial_output)
-          Serial.printf("Update: %s\n", upload.filename.c_str());
-        uint32_t maxSketchSpace = (ESP.getFreeSketchSpace() - 0x1000) & 0xFFFFF000;
-        if(!Update.begin(maxSketchSpace)){//start with max available size
-          _setUpdaterError();
-        }
-      } else if(_authenticated && upload.status == UPLOAD_FILE_WRITE && !_updaterError.length()){
-        if (_serial_output) Serial.printf(".");
-        if(Update.write(upload.buf, upload.currentSize) != upload.currentSize){
-          _setUpdaterError();
-        }
-      } else if(_authenticated && upload.status == UPLOAD_FILE_END && !_updaterError.length()){
-        if(Update.end(true)){ //true to set the size to the current progress
-          if (_serial_output) Serial.printf("Update Success: %u\nRebooting...\n", upload.totalSize);
-        } else {
-          _setUpdaterError();
-        }
-        if (_serial_output) Serial.setDebugOutput(false);
-      } else if(_authenticated && upload.status == UPLOAD_FILE_ABORTED){
-        Update.end();
-        if (_serial_output) Serial.println("Update was aborted");
-      }
-      delay(0);
-    });
-
-    
-/* ======================================================================================================================================================== */
-
   /* Setup web pages: root, wifi config pages, SO captive portal detectors and not found. */
   server->on("/", std::bind(&WiFiManager::handleRoot, this));
   server->on("/wifi", std::bind(&WiFiManager::handleWifi, this, true));
@@ -211,6 +118,9 @@ void WiFiManager::setupConfigPortal() {
   //server->on("/generate_204", std::bind(&WiFiManager::handle204, this));  //Android/Chrome OS captive portal check.
   server->on("/fwlink", std::bind(&WiFiManager::handleRoot, this));  //Microsoft captive portal. Maybe not needed. Might be handled by notFound handler.
   server->onNotFound (std::bind(&WiFiManager::handleNotFound, this));
+
+  server->on("/update", HTTP_GET, std::bind(&WiFiManager::handleUpload, this)); // Josef - Send the /update page
+  server->on("/update", HTTP_POST, std::bind(&WiFiManager::handleUploaded, this), std::bind(&WiFiManager::handleUploading, this)); // Josef - Recive the file from /updated form and handle firmware upgrade
   
   
   server->begin(); // Web server start
@@ -772,6 +682,96 @@ void WiFiManager::handleNotFound() {
   server->sendHeader("Pragma", "no-cache");
   server->sendHeader("Expires", "-1");
   server->send ( 404, "text/plain", message );
+}
+
+/** Handle the /upload page to show the form */
+void WiFiManager::handleUpload() {
+
+    // Uncomment to request user to login first
+    /*
+    _username = NULL; //(char *)username;
+    _password = NULL; //(char *)password;
+    
+    if(_username != NULL && _password != NULL && !server->authenticate(_username, _password)) {
+      server->requestAuthentication();
+    }
+    */
+
+    String page = FPSTR(HTTP_HEAD);
+    page.replace("{v}", "Update Firmware");
+    page += FPSTR(HTTP_SCRIPT);
+    page += FPSTR(HTTP_STYLE);
+    page += _customHeadElement;
+    page += FPSTR(HTTP_HEAD_END);
+    page += "<h1>";
+    page += _apName;
+    page += "</h1>";
+    page += F("<h3>ESP8266 upload firmware</h3>");
+    page += FPSTR(serverIndex);
+    page += FPSTR(HTTP_END);
+
+    
+    server->send(200, PSTR("text/html"), page);
+}
+
+/** Handle the when file is uploaded */
+void WiFiManager::handleUploaded() {
+  if(!_authenticated) {
+    server->requestAuthentication();
+  }
+  if (Update.hasError()) {
+    server->send(200, F("text/html"), String(F("Update error: ")) + _updaterError);
+  } else {
+    server->client().setNoDelay(true);
+    server->send_P(200, PSTR("text/html"), successResponse);
+    delay(100);
+    server->client().stop();
+    ESP.restart();
+  }
+}
+
+/** Handle the uploading of a file */
+void WiFiManager::handleUploading() {
+  // handler for the file upload, get's the sketch bytes, and writes
+  // them through the Update object
+  HTTPUpload& upload = server->upload();
+
+  if(upload.status == UPLOAD_FILE_START){
+    _updaterError = String();
+    if (_serial_output)
+      Serial.setDebugOutput(true);
+
+    _authenticated = (_username == NULL || _password == NULL || server->authenticate(_username, _password));
+    if(!_authenticated){
+      if (_serial_output)
+        Serial.printf("Unauthenticated Update\n");
+      return;
+    }
+
+    WiFiUDP::stopAll();
+    if (_serial_output)
+      Serial.printf("Update: %s\n", upload.filename.c_str());
+    uint32_t maxSketchSpace = (ESP.getFreeSketchSpace() - 0x1000) & 0xFFFFF000;
+    if(!Update.begin(maxSketchSpace)){//start with max available size
+      _setUpdaterError();
+    }
+  } else if(_authenticated && upload.status == UPLOAD_FILE_WRITE && !_updaterError.length()){
+    if (_serial_output) Serial.printf(".");
+    if(Update.write(upload.buf, upload.currentSize) != upload.currentSize){
+      _setUpdaterError();
+    }
+  } else if(_authenticated && upload.status == UPLOAD_FILE_END && !_updaterError.length()){
+    if(Update.end(true)){ //true to set the size to the current progress
+      if (_serial_output) Serial.printf("Update Success: %u\nRebooting...\n", upload.totalSize);
+    } else {
+      _setUpdaterError();
+    }
+    if (_serial_output) Serial.setDebugOutput(false);
+  } else if(_authenticated && upload.status == UPLOAD_FILE_ABORTED){
+    Update.end();
+    if (_serial_output) Serial.println("Update was aborted");
+  }
+  delay(0);
 }
 
 
