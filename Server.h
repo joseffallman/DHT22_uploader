@@ -4,16 +4,19 @@
  Author:  Daniel
 */
 
-#include <string.h>
+#include <WString.h>
 #include "SensorData.h"
 
-public class Server
+class UploadServer
 {
     public:
-        Server(String url);
+		UploadServer();
+        UploadServer(String url);
 
+		void AddUrl(String url);
+		bool Connect(String adress);
         bool SendReading(SensorData reading);
 
     private:
         String _url;
-}
+};

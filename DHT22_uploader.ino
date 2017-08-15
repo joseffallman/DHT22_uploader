@@ -17,7 +17,8 @@ Ticker ticker;
 #define DHTTYPE DHT22
 #include <TimeLib.h> 
 //#include <WiFiUdp.h>  // This is only for ntp-time
-#include <string.h>
+//#include <string.h>
+#include "Device.h"
 
 
 float temperature = 0.0;

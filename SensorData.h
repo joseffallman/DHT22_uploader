@@ -3,9 +3,11 @@
  Created: 2017-08-13
  Author:  Daniel
 */
+#ifndef SensorData_h
+#define SensorData_h
 
 // Class that models data read from a sensor.
-public class SensorData
+class SensorData
 {
     public:
         // Creates a SensorData object.
@@ -22,4 +24,5 @@ public class SensorData
     private:
         float _temperature;
         float _humidity;
-}
+};
+#endif

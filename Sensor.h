@@ -6,11 +6,15 @@
 
 #include "SensorData.h"
 
-public class Sensor
+class Sensor
 {
-    public:
-        Sensor();
+	public:
+		// Define to what pin (4) your sensor is connected and what type of DHT sensor it is (22)
+        Sensor(int pin, int type);
 
         // Gets the temperature and humidity measured by the sensor.
-        SensorData Read();
-}
+        SensorData* Read();
+	private:
+		int _pin;
+		int _type;
+};
